@@ -1,0 +1,23 @@
+first training with bert, text to predict goldstein:
+EPOCHS = 16
+BATCH_SIZE = 64
+LEARNING_RATE = 0.0014
+NUM_FEATURES = 300
+NUM_CLASSES = len(gold_class)
+INPUT_DIM = X_train.shape[1]
+Epoch 001: | Train Loss: 3.25635 | Val Loss: 3.28558 | Train Acc: 13.361| Val Acc: 14.341
+Epoch 002: | Train Loss: 2.07737 | Val Loss: 2.91459 | Train Acc: 30.604| Val Acc: 25.049
+Epoch 003: | Train Loss: 1.56578 | Val Loss: 2.53862 | Train Acc: 40.461| Val Acc: 30.138
+Epoch 004: | Train Loss: 1.26011 | Val Loss: 2.83242 | Train Acc: 48.044| Val Acc: 30.439
+Epoch 005: | Train Loss: 1.09108 | Val Loss: 2.39463 | Train Acc: 53.619| Val Acc: 39.756
+Epoch 006: | Train Loss: 0.96953 | Val Loss: 2.83447 | Train Acc: 57.467| Val Acc: 35.439
+Epoch 007: | Train Loss: 0.88343 | Val Loss: 2.70310 | Train Acc: 60.533| Val Acc: 38.146
+Epoch 008: | Train Loss: 0.80293 | Val Loss: 2.49195 | Train Acc: 62.823| Val Acc: 42.618
+Epoch 009: | Train Loss: 0.76287 | Val Loss: 3.19997 | Train Acc: 64.538| Val Acc: 39.187
+Epoch 010: | Train Loss: 0.69014 | Val Loss: 2.86466 | Train Acc: 67.314| Val Acc: 41.081
+Epoch 011: | Train Loss: 0.64667 | Val Loss: 2.39471 | Train Acc: 68.887| Val Acc: 47.114
+Epoch 012: | Train Loss: 0.63719 | Val Loss: 2.42055 | Train Acc: 69.704| Val Acc: 48.439
+Epoch 013: | Train Loss: 0.56011 | Val Loss: 2.50992 | Train Acc: 71.847| Val Acc: 51.382
+Epoch 014: | Train Loss: 0.53045 | Val Loss: 2.59940 | Train Acc: 73.555| Val Acc: 48.593
+Epoch 015: | Train Loss: 0.55709 | Val Loss: 2.79290 | Train Acc: 72.933| Val Acc: 49.715
+Epoch 016: | Train Loss: 0.50613 | Val Loss: 2.67578 | Train Acc: 74.879| Val Acc: 49.179
