@@ -1,5 +1,8 @@
 from flask import Flask, render_template
 
+TEMPLATES_AUTO_RELOAD = True
+DEBUG = True
+
 app = Flask(__name__)
 
 @app.route("/", methods=["POST", "GET"])
