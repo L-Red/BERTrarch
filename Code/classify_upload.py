@@ -5,6 +5,7 @@ from dataloading import *
 import pytorch_lightning as pl
 from training.neural_nets import *
 from training.data_preparation import *
+from training.neural_nets import MulticlassClassification
 import numpy as np
 import pandas as pd
 
@@ -26,9 +27,13 @@ def anno_ucdp(filename):
     return
   tokenizer, bert_model = load_bert()
   tokens = tokenizer(df.tolist(), padding=True, return_tensors='pt', truncation=True)
-  NUM_FEATURES = 300
-  NUM_CLASSES = 100000
-  INPUT_DIM = tokens.shape[1]
+  for label in UCDP_LABELS:
+    NUM_FEATURES = 300
+    NUM_CLASSES = 100000
+    INPUT_DIM = tokens.shape[1]
+    name = f"udcp-bert-{label}-classified"
+    model = MulticlassClassification(INPUT_DIM, NUM_CLASSES, NUM_CLASSES, name, bert_model, {})
+
   return
 
 
