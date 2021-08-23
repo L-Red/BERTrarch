@@ -271,7 +271,7 @@ def train(model, config, data_module, device, reg=False):
     trainer = pl.Trainer(gpus=n, max_epochs=2, accelerator='dp', logger=wandb_logger, default_root_dir=f"./models/{model.name}")
 
     trainer.fit(model, datamodule=data_module)
-    trainer.save_checkpoint("./checkpoints/example.ckpt")
+    trainer.save_checkpoint(f"./checkpoints/{model.name}.ckpt")
 
 
 def train1(model, config, data_module, device, reg=False):
