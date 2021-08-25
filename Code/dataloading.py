@@ -54,7 +54,7 @@ def load_translated_ucdp(label):
       text_list.pop(index)
       y_list.pop(index)
 
-  return (text_list, y_list, le, num_classes)
+  return (text_list, y_list, num_classes)
 
 def ucdp_process_raw(UCDP):
   from langdetect import detect

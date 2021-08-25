@@ -15,7 +15,7 @@ import numpy as np
 DEVICE = torch.device("cuda" if torch.cuda.is_available()else "cpu")
 FRAMEWORK = ''
 LABEL = ''
-NUM_CLASSES
+NUM_CLASSES=10000
 
 
 def classify(text, dtype):
@@ -93,4 +93,3 @@ n = torch.cuda.device_count()
 model_name = f"{FRAMEWORK}-bert-{LABEL}-classified"
 model = MulticlassClassification(config["INPUT_DIM"], config["NUM_FEATURES"], config["NUM_CLASSES"], model_name, bert_model, config)
 train(model, config, data_module, DEVICE, reg=False)
-save_model(model)
