@@ -15,6 +15,7 @@ import numpy as np
 DEVICE = torch.device("cuda" if torch.cuda.is_available()else "cpu")
 FRAMEWORK = ''
 LABEL = ''
+NUM_CLASSES
 
 
 def classify(text, dtype):
@@ -29,24 +30,24 @@ def classify(text, dtype):
         return
 
 def run_ucdp(label):   
-    X, y = load_translated_ucdp(label)
-    return X, y, label
+    X, y, num_classes = load_translated_ucdp(label)
+    return X, y, label, num_classes
     # UCDP = load_raw_ucdp()
     # UCDP2 = ucdp_process_raw(UCDP)
     # ucdp_save(UCDP2, '../UCDP/translated_df.csv')
 
 
 def run_acled():
-    X, y = get_acled('fatalities')
-    return X,y
+    X, y, num_classes = get_acled('fatalities')
+    return X,y, num_classes
 
 if sys.argv[1] == 'u': #run for UCDP
     #X, y = run_ucdp(sys.argv[2])
-    X, y, LABEL = run_ucdp(sys.argv[2])
+    X, y, LABEL, NUM_CLASSES = run_ucdp(sys.argv[2])
     FRAMEWORK = "ucdp"
 
 elif sys.argv[1] == 'a': #run for ACLED
-    X, y = run_acled()
+    X, y, NUM_CLASSES = run_acled()
     FRAMEWORK = "acled"
 
 elif sys.argv[1] == 'w': #run for WEIS
@@ -73,7 +74,7 @@ config = dict(EPOCHS = 2,
               BATCH_SIZE = 32,
               LEARNING_RATE = 3e-2,
               NUM_FEATURES = 300,
-              NUM_CLASSES = 100000,
+              NUM_CLASSES = NUM_CLASSES,
               INPUT_DIM = X.shape[1])
 
 del tokenizer, X, y

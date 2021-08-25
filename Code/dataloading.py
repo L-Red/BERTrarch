@@ -1,3 +1,4 @@
+from numpy.core.defchararray import encode
 import torch
 from torch.utils.data import Dataset
 import pickle
@@ -5,14 +6,18 @@ import pandas as pd
 from langdetect import detect
 from easynmt import EasyNMT
 from sklearn.preprocessing import LabelEncoder
-import numpy
+import numpy as np
 
 #load ACLED DATA
 def get_acled(label):
   ACLED = pd.read_csv('../ACLED/ACLED_all_25_05_2021.csv', engine='python', skiprows=range(1,1000), nrows=500000, header=0)
-  y = ACLED[label].to_numpy()
+  y = ACLED[label].tolist()
+  le = LabelEncoder()
+  y = le.fit_transform(y)
+  np.save(f'./label-encoder-classes/acled-{label}-classes.npy', le.classes_)
   text_list = ACLED['notes'].tolist()
-  return (text_list, y)
+  num_classes = len(le.classes_)
+  return (text_list, y, num_classes)
 
 
 #load UCDP data
@@ -33,9 +38,10 @@ def load_translated_ucdp(label):
   text_list = text_df['source_headline'].tolist()
   y_list = text_df[label].tolist()
 
-  if eligible_dt(y_list):
-    le = LabelEncoder()
-    y_list = le.fit_transform(y_list)
+  le = LabelEncoder()
+  y_list = le.fit_transform(y_list)
+  np.save(f'./label-encoder-classes/ucdp-{label}-classes.npy', le.classes_)
+  num_classes = len(le.classes_)
 
   #delete all non-string entries
   ls = []
@@ -48,7 +54,7 @@ def load_translated_ucdp(label):
       text_list.pop(index)
       y_list.pop(index)
 
-  return (text_list, y_list)
+  return (text_list, y_list, le, num_classes)
 
 def ucdp_process_raw(UCDP):
   from langdetect import detect

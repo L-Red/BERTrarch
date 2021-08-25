@@ -100,8 +100,7 @@ class MulticlassClassification(pl.LightningModule):
     def forward(self, x):
         #print(x.shape)
         #print(x.shape)
-        with torch.no_grad():
-            x = self.pretrained(x)
+        x = self.pretrained(x)
         
         x = x["last_hidden_state"]
         #print(x.shape)
