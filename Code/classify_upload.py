@@ -31,14 +31,14 @@ def anno_ucdp(filename):
   output_dataset = pd.DataFrame(columns=['best'])
   for label in UCDP_LABELS:
     encoder = LabelEncoder()
-    encoder.classes_ = numpy.load(f'./training/label-encoder-classes/ucdp-{label}-classes.npy')
+    encoder.classes_ = np.load(f'./label-encoder-classes/ucdp-{label}-classes.npy')
     NUM_FEATURES = 300
     NUM_CLASSES = len(encoder.classes_)
     tokens = tokens['input_ids']
-    print(tokens.shape)
     INPUT_DIM = tokens.shape[1]
-    name = f"udcp-bert-{label}-classified"
+    name = f"ucdp-bert-{label}-classified"
     MulticlassClassification(INPUT_DIM, NUM_CLASSES, NUM_CLASSES, name, bert_model, {})
+    print(tokens.shape)
     model = MulticlassClassification.load_from_checkpoint(
         f"./checkpoints/{name}.ckpt", 
         input_dim=INPUT_DIM, 
