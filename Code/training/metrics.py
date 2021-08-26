@@ -2,6 +2,8 @@ import torch
 from torch import nn
 def hit_at_k(pred, target, k):
     hits = []
+    if(pred.shape[1]<k):
+        k = pred.shape[1]
     topk = torch.topk(pred, k=k)[1]
     for i, tens in enumerate(topk):
         if target[i] in tens:
