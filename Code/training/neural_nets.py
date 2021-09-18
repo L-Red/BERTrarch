@@ -1,3 +1,4 @@
+from flask import config
 import wandb
 from .metrics import *
 import torch
@@ -112,24 +113,29 @@ class MulticlassClassification(pl.LightningModule):
         #print(x.shape)
         #x = x.view(-1, 512,  45)
         #print(x.shape)
-        x = self.batchnorm0_1(x)
+        if x.shape[0] > 1:
+            x = self.batchnorm0_1(x)
         x = self.relu(x)
         
         x = self.layer_0_1(x)
-        x = self.batchnorm1(x)
+        if x.shape[0] > 1:
+            x = self.batchnorm1(x)
         x = self.relu(x)
         
         x = self.layer_1_2(x)
-        x = self.batchnorm1(x)
+        if x.shape[0] > 1:
+            x = self.batchnorm1(x)
         x = self.relu(x)
 
         x = self.layer_2(x)
-        x = self.batchnorm2(x)
+        if x.shape[0] > 1:
+            x = self.batchnorm2(x)
         x = self.relu(x)
         x = self.dropout(x)
 
         x = self.layer_3(x)
-        x = self.batchnorm3(x)
+        if x.shape[0] > 1:
+            x = self.batchnorm3(x)
         x = self.relu(x)
         x = self.dropout(x)
 
