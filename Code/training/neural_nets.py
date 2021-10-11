@@ -85,9 +85,10 @@ class MulticlassClassification(pl.LightningModule):
         self.embedding = nn.Embedding(input_dim, num_feature)
 
         self.layer_1 = nn.Linear(input_dim*768, 1024)
+        self.classifier= nn.Linear(768, num_class)
         #self.layer_0 = nn.Linear(2048, 1024)
         self.layer_0_1 = nn.Linear(1024, 512)
-        self.layer_1_2 = nn.Linear(512, 512)
+        # self.layer_1_2 = nn.Linear(512, 512)
         self.layer_2 = nn.Linear(512, 128)
         self.layer_3 = nn.Linear(128, 64)
         self.layer_out = nn.Linear(64, num_class)
@@ -108,12 +109,14 @@ class MulticlassClassification(pl.LightningModule):
         #print(x.shape)
         x = self.pretrained(x)
         
-        x = x["last_hidden_state"]
+        #changed from last_hidden_state to pooler_output
+        x = x["pooler_output"]
         #print(x.shape)
         #x = x.view(BATCH_SIZE,-1)
-        x = torch.flatten(x, start_dim=1)
+        #x = torch.flatten(x, start_dim=1)
         #print(x.shape)
 
+        """
         x = self.layer_1(x)
         #print(x.shape)
         #x = x.view(-1, 512,  45)
@@ -127,10 +130,10 @@ class MulticlassClassification(pl.LightningModule):
             x = self.batchnorm1(x)
         x = self.relu(x)
         
-        x = self.layer_1_2(x)
-        if x.shape[0] > 1:
-            x = self.batchnorm1(x)
-        x = self.relu(x)
+        # x = self.layer_1_2(x)
+        # if x.shape[0] > 1:
+        #     x = self.batchnorm1(x)
+        # x = self.relu(x)
 
         x = self.layer_2(x)
         if x.shape[0] > 1:
@@ -145,7 +148,9 @@ class MulticlassClassification(pl.LightningModule):
         x = self.dropout(x)
 
         x = self.layer_out(x)
-        #x = self.softmax(x)
+        """
+        x = self.classifier(x)
+        x = self.softmax(x)
 
         return x
     def configure_optimizers(self):
@@ -246,6 +251,7 @@ class MulticlassClassification1(nn.Module):
         self.layer_2 = nn.Linear(512, 128)
         self.layer_3 = nn.Linear(128, 64)
         self.layer_out = nn.Linear(64, num_class)
+        self.classifier = nn.Linear(input_dim*768, num_class)
         self.softmax = nn.Softmax(dim=1)
 
         self.relu = nn.ReLU()
@@ -260,15 +266,14 @@ class MulticlassClassification1(nn.Module):
         #print(x.shape)
         #print(x.shape)
         # input_dim = x.shape[1]
-        with torch.no_grad():
-            x = self.pretrained(x)
+        x = self.pretrained(x)
         
         x = x["last_hidden_state"]
         #print(x.shape)
         #x = x.view(BATCH_SIZE,-1)
         x = torch.flatten(x, start_dim=1)
         #print(x.shape)
-        self.layer_1 = nn.Linear(input_dim*768, 1024)
+        """self.layer_1 = nn.Linear(input_dim*768, 1024)
         x = self.layer_1(x)
         #print(x.shape)
         #x = x.view(-1, 512,  45)
@@ -294,9 +299,10 @@ class MulticlassClassification1(nn.Module):
         x = self.relu(x)
         x = self.dropout(x)
 
-        x = self.layer_out(x)
-        #x = self.softmax(x)
+        x = self.layer_out(x)"""
 
+        x = self.classifier(x)
+        x = self.softmax(x)
         return x
 
         
