@@ -8,15 +8,16 @@ from easynmt import EasyNMT
 from sklearn.preprocessing import LabelEncoder
 import numpy as np
 
-#load ACLED DATA
+#load ACLED data
 def get_acled(label):
-  ACLED = pd.read_csv('../ACLED/ACLED_all_25_05_2021.csv', engine='python', skiprows=range(1,1000), nrows=500000, header=0)
+  ACLED = pd.read_csv('../ACLED/ACLED_all_25_05_2021.csv', engine='python', skiprows=range(1,1000), nrows=250000, header=0)
   y = ACLED[label].tolist()
   le = LabelEncoder()
   y = le.fit_transform(y)
   np.save(f'./label-encoder-classes/acled-{label}-classes.npy', le.classes_)
   text_list = ACLED['notes'].tolist()
   num_classes = len(le.classes_)
+  amt = len(y)
   return (text_list, y, num_classes)
 
 
@@ -116,7 +117,7 @@ def tokenize_bert(text_list, y_list, tokenizer, cut=1):
     padding=True, 
     return_tensors='np', 
     truncation=True, 
-    # max_length=128
+    max_length=64
     )
   y = y_list[0:len(text_list)//cut]
   X = indexed_tokens['input_ids']
@@ -130,16 +131,15 @@ def split_data(X, y):
   # y_train, y_test, y_val = random_split(y, [l*7//10, l*2//10, l-l*9//10], generator=torch.Generator().manual_seed(42))
 
   # Split into train+val and test
-  X_trainval, X_test, y_trainval, y_test = train_test_split(X, y, test_size=0.2, random_state=69)
+  X_train, X_testval, y_train, y_testval = train_test_split(X, y, test_size=0.2, random_state=69)
 
   # Split train into train-val
-  X_train, X_val, y_train, y_val = train_test_split(X_trainval, y_trainval, test_size=0.1, random_state=21)
+  X_test, X_val, y_test, y_val = train_test_split(X_testval, y_testval, test_size=0.5, random_state=21) #previously trainval, 0.1 here
   return [(X_train, y_train), (X_val, y_val), (X_test, y_test)]
   
 
 def create_dataset(tup):
   return ClassifierDataset(*tup)
-
 
   print(X_train.shape)
   return (train_dataset, val_dataset, test_dataset)

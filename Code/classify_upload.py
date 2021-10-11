@@ -53,6 +53,7 @@ def anno_ucdp(df):
         pretrained=bert_model,
         config={}
     )
+    model.eval()
     for i in range(0, tokens.shape[0], batch_size):
       input_data = tokens[i:i+batch_size]
       output_data = torch.argmax(model.forward(input_data), dim=1).view(1,-1)

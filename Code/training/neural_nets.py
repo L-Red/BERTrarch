@@ -130,10 +130,10 @@ class MulticlassClassification(pl.LightningModule):
             x = self.batchnorm1(x)
         x = self.relu(x)
         
-        # x = self.layer_1_2(x)
-        # if x.shape[0] > 1:
-        #     x = self.batchnorm1(x)
-        # x = self.relu(x)
+        x = self.layer_1_2(x)
+        if x.shape[0] > 1:
+            x = self.batchnorm1(x)
+        x = self.relu(x)
 
         x = self.layer_2(x)
         if x.shape[0] > 1:
