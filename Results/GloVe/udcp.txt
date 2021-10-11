@@ -1,0 +1,3 @@
+event_clarity:
+Validation F1_Score : 0.9253600070466141
+Test F1_Score: 0.9269332601409558

@@ -1,0 +1,3 @@
+event_type:
+Validation F1_Score : 0.9299162159852116
+Test F1_Score: 0.9307084891631323

@@ -1,0 +1,6 @@
+event_code:
+Validation F1_Score : 0.5244473510615466
+Test F1_Score: 0.5260451138657761
+with average:
+Validation F1_Score : 0.5689316243230728
+Test F1_Score: 0.5655507166317661

@@ -1,0 +1,7 @@
+Event Clarity:
+Validation F1_Score : 0.6579601990049752
+Test F1_Score: 0.6427622841965471
+
+Type of Violence:
+Validation F1_Score : 0.8602235305111693
+Test F1_Score: 0.8499490429771942

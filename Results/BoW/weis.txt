@@ -1,0 +1,3 @@
+event_code
+Validation F1_Score : 0.5791965864988008
+Test F1_Score: 0.5791416589499018
