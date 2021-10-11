@@ -1,3 +1,4 @@
+from flask import config
 import wandb
 from .metrics import *
 import torch
@@ -8,6 +9,7 @@ import torch.optim as optim
 from sklearn.metrics import f1_score
 from torch.nn.parallel import DistributedDataParallel as DDP
 from pytorch_lightning.loggers import WandbLogger
+from torchmetrics.functional import f1
 
 
 
@@ -76,6 +78,8 @@ class MulticlassClassification(pl.LightningModule):
 
         self.config = config
 
+        self.num_classes = num_class
+
         self.criterion = nn.CrossEntropyLoss()
         
         self.embedding = nn.Embedding(input_dim, num_feature)
@@ -96,6 +100,8 @@ class MulticlassClassification(pl.LightningModule):
         self.batchnorm1 = nn.BatchNorm1d(512)
         self.batchnorm2 = nn.BatchNorm1d(128)
         self.batchnorm3 = nn.BatchNorm1d(64)
+
+        self.save_hyperparameters()
     
     def forward(self, x):
         #print(x.shape)
@@ -112,24 +118,29 @@ class MulticlassClassification(pl.LightningModule):
         #print(x.shape)
         #x = x.view(-1, 512,  45)
         #print(x.shape)
-        x = self.batchnorm0_1(x)
+        if x.shape[0] > 1:
+            x = self.batchnorm0_1(x)
         x = self.relu(x)
         
         x = self.layer_0_1(x)
-        x = self.batchnorm1(x)
+        if x.shape[0] > 1:
+            x = self.batchnorm1(x)
         x = self.relu(x)
         
         x = self.layer_1_2(x)
-        x = self.batchnorm1(x)
+        if x.shape[0] > 1:
+            x = self.batchnorm1(x)
         x = self.relu(x)
 
         x = self.layer_2(x)
-        x = self.batchnorm2(x)
+        if x.shape[0] > 1:
+            x = self.batchnorm2(x)
         x = self.relu(x)
         x = self.dropout(x)
 
         x = self.layer_3(x)
-        x = self.batchnorm3(x)
+        if x.shape[0] > 1:
+            x = self.batchnorm3(x)
         x = self.relu(x)
         x = self.dropout(x)
 
@@ -150,6 +161,7 @@ class MulticlassClassification(pl.LightningModule):
         hit_at_1 = hit_at_k(y_train_pred, y_train_batch, 1)
         hit_at_3 = hit_at_k(y_train_pred, y_train_batch, 3)
         hit_at_10 = hit_at_k(y_train_pred, y_train_batch, 10)
+        f1score = f1(y_train_pred, y_train_batch, self.num_classes)
         
         mdae = MdAE(y_train_pred, y_train_batch, reg=False)
         mdape = MdAPE(y_train_pred, y_train_batch, reg=False)
@@ -160,6 +172,8 @@ class MulticlassClassification(pl.LightningModule):
         self.log("train_loss", train_loss)
         self.log("MdAE", mdae)
         self.log("MdAPE", mdape)
+        self.log("F1", f1score)
+        return train_loss
 
         #train_acc = multi_acc(y_train_pred, y_train_batch)
     def validation_step(self, val_batch, batch_idx):
@@ -170,14 +184,11 @@ class MulticlassClassification(pl.LightningModule):
         hit_at_1 = hit_at_k(y_val_pred, y_val_batch, 1)
         hit_at_3 = hit_at_k(y_val_pred, y_val_batch, 3)
         hit_at_10 = hit_at_k(y_val_pred, y_val_batch, 10)
+
+        f1score = f1(y_val_pred, y_val_batch, self.num_classes)
         
         mdae = MdAE(y_val_pred, y_val_batch, reg=False)
         mdape = MdAPE(y_val_pred, y_val_batch, reg=False)
-
-        #val_acc = multi_acc(y_val_pred, y_val_batch)
-        
-        #for prediction, truth in zip(y_val_pred, y_val_batch))
-            #class_matrix_val[prediction][truth] += 1
 
         self.log("val_hit@3", hit_at_3)
         self.log("val_hit@1", hit_at_1)
@@ -185,6 +196,34 @@ class MulticlassClassification(pl.LightningModule):
         self.log("val_loss", val_loss)
         self.log("val_MdAE", mdae)
         self.log("val_MdAPE", mdape)
+        self.log("val_F1", f1score)
+        
+        return val_loss
+
+    def test_step(self, test_batch, batch_idx):
+        X_test_batch, y_test_batch = test_batch
+        y_test_pred = self.forward(X_test_batch)
+        test_loss = self.criterion(y_test_pred, y_test_batch)
+
+        hit_at_1 = hit_at_k(y_test_pred, y_test_batch, 1)
+        hit_at_3 = hit_at_k(y_test_pred, y_test_batch, 3)
+        hit_at_10 = hit_at_k(y_test_pred, y_test_batch, 10)
+        
+        mdae = MdAE(y_test_pred, y_test_batch, reg=False)
+        mdape = MdAPE(y_test_pred, y_test_batch, reg=False)
+
+        f1score = f1(y_test_pred, y_test_batch, self.num_classes)
+
+        self.log("test_loss", test_loss)
+        self.log("test_F1", f1score)
+
+        return test_loss
+
+        #val_acc = multi_acc(y_val_pred, y_val_batch)
+        
+        #for prediction, truth in zip(y_val_pred, y_val_batch))
+            #class_matrix_val[prediction][truth] += 1
+
 
 class MulticlassClassification1(nn.Module):
     def __init__(self, input_dim, num_feature, num_class, name, pretrained):
@@ -220,6 +259,7 @@ class MulticlassClassification1(nn.Module):
     def forward(self, x):
         #print(x.shape)
         #print(x.shape)
+        # input_dim = x.shape[1]
         with torch.no_grad():
             x = self.pretrained(x)
         
@@ -228,7 +268,7 @@ class MulticlassClassification1(nn.Module):
         #x = x.view(BATCH_SIZE,-1)
         x = torch.flatten(x, start_dim=1)
         #print(x.shape)
-
+        self.layer_1 = nn.Linear(input_dim*768, 1024)
         x = self.layer_1(x)
         #print(x.shape)
         #x = x.view(-1, 512,  45)
@@ -267,10 +307,26 @@ def train(model, config, data_module, device, reg=False):
     n = torch.cuda.device_count()
 
     wandb_logger.watch(model)
-    trainer = pl.Trainer(gpus=n, max_epochs=2, accelerator='dp', logger=wandb_logger, default_root_dir=f"./models/{model.name}")
+    if config['NUM_NODES'] > 1:
+        parallellization = 'ddp'
+    else:
+        parallellization = 'dp'
+    trainer = pl.Trainer(
+        gpus=-1, 
+        max_epochs=config['EPOCHS'], 
+        accelerator=parallellization, 
+        num_nodes=config['NUM_NODES'], 
+        logger=wandb_logger, 
+        default_root_dir=f"./models/{model.name}",
+        # accumulate_grad_batches=10,
+        # gradient_clip_val=0.5,
+        # stochastic_weight_avg=True
+        )
 
     trainer.fit(model, datamodule=data_module)
     trainer.save_checkpoint(f"./checkpoints/{model.name}.ckpt")
+    trainer.test(ckpt_path="best")
+
 
 
 def train1(model, config, data_module, device, reg=False):

@@ -3,6 +3,7 @@ import torch
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader, WeightedRandomSampler
 from torch.utils.data.distributed import DistributedSampler
+from dataloading import *
 
 def normalize_data(tuple_list):
   scaler = MinMaxScaler()
@@ -12,22 +13,31 @@ def normalize_data(tuple_list):
   return
 
 class DataModule(pl.LightningDataModule):
-  def __init__(self, train_dataset, val_dataset, test_dataset, batchsize, WEIGHTED_SAMPLER=False, weighted_sampler=None):
+  def __init__(self, X, y, batch_size, datasets):
     super().__init__()
-    self.train_dataset = train_dataset
-    self.val_dataset = val_dataset
-    self.test_dataset = test_dataset
-    self.batchsize = batchsize
-    self.is_weighted = WEIGHTED_SAMPLER
-    self.weighted_sampler = weighted_sampler
+    self.X = X
+    self.y = y
+    self.datasets = datasets
+    self.batchsize = batch_size
+  # def prepare_data(self):
+  #   #BERT
+  #   tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased') 
+  #   self.y = np.array(self.y)
+  #   self.X, self.y = tokenize_bert(self.X, self.y, tokenizer)
+  #   self.input_dim = self.X.shape[1]
+  #   split_list = split_data(self.X,self.y)
+  #   #normalize_data(split_list)
+  #   for tup in split_list:
+  #       self.datasets.append(create_dataset(tup))
 
   def setup(self, stage):
-    self.train_dataloader = DataLoader(dataset=self.train_dataset,
+    self.train_dataloader = DataLoader(dataset=self.datasets[0],
                               batch_size=self.batchsize,
-                              sampler=self.weighted_sampler
+                              num_workers = 72
+                              # sampler=self.weighted_sampler
     )
-    self.val_dataloader = DataLoader(dataset=self.val_dataset, batch_size=self.batchsize)
-    self.test_dataloader = DataLoader(dataset=self.test_dataset, batch_size=self.batchsize)
+    self.val_dataloader = DataLoader(dataset=self.datasets[1], batch_size=self.batchsize, num_workers=72)
+    self.test_dataloader = DataLoader(dataset=self.datasets[2], batch_size=self.batchsize, num_workers=72)
 
   def train_dataloader(self):
       return self.train_dataloader

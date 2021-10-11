@@ -1,4 +1,7 @@
 import sys
+import os.path
+
+from flask import config
 
 # import config
 from dataloading import *
@@ -11,36 +14,38 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder 
 
-UCDP_LABELS = ['best']
+UCDP_LABELS = ['best', 'side_a', 'side_b', 'event_clarity', 'type_of_violence']
 ACLED_LABELS = []
 WEIS_LABELS = []
 
-def anno_ucdp(filename):
-  if filetype(filename) == 'csv':
-    df = pd.read_csv(filename)[:10]
-  elif filetype(filename) == 'xlsx':
-    df = pd.read_excel(filename)
-  else:
-    return
+
+def anno_ucdp(df):
   if len(df.columns) > 1:
     return
   tokenizer, bert_model = load_bert()
+  print(df)
   tokens = tokenizer(df.iloc[:,0].tolist(), padding='max_length', max_length=512, return_tensors='pt', truncation=True)
-  loader = DataLoader(tokens, batch_size=2)
-  batch_size=2
-  output_dataset = pd.DataFrame(columns=['best'])
+  tokens = tokens['input_ids']
+  batch_size=1
+  loader = DataLoader(tokens, batch_size=batch_size)
+  output_dataset = df
   for label in UCDP_LABELS:
+    name = f"ucdp-bert-{label}-classified"
+    if not os.path.isfile(f'../checkpoints/{name}.ckpt'):
+      continue
+    output_column = pd.DataFrame(columns=[label])
     encoder = LabelEncoder()
-    encoder.classes_ = np.load(f'./label-encoder-classes/ucdp-{label}-classes.npy')
+    encoder.classes_ = np.load(f'../label-encoder-classes/ucdp-{label}-classes.npy')
     NUM_FEATURES = 300
     NUM_CLASSES = len(encoder.classes_)
-    tokens = tokens['input_ids']
     INPUT_DIM = tokens.shape[1]
-    name = f"ucdp-bert-{label}-classified"
-    MulticlassClassification(INPUT_DIM, NUM_CLASSES, NUM_CLASSES, name, bert_model, {})
+    config = {
+      'BATCH_SIZE': batch_size
+    }
+    MulticlassClassification(INPUT_DIM, NUM_CLASSES, NUM_CLASSES, name, bert_model, config)
     print(tokens.shape)
     model = MulticlassClassification.load_from_checkpoint(
-        f"./checkpoints/{name}.ckpt", 
+        f"../checkpoints/{name}.ckpt", 
         input_dim=INPUT_DIM, 
         num_feature=NUM_FEATURES,
         num_class=NUM_CLASSES,
@@ -52,8 +57,13 @@ def anno_ucdp(filename):
       input_data = tokens[i:i+batch_size]
       output_data = torch.argmax(model.forward(input_data), dim=1).view(1,-1)
       print(output_data.shape)
-      output_data = encoder.inverse_transform(output_data.squeeze().numpy())
-      output_dataset = pd.concat([output_dataset, pd.DataFrame({label: output_data})], ignore_index=True)
+      if batch_size > 1:
+        output_data = output_data.squeeze().numpy()
+      else:
+        output_data = output_data.numpy()
+      output_data = encoder.inverse_transform(output_data)
+      output_column = pd.concat([output_column, pd.DataFrame({label: output_data})], ignore_index=True)
+    output_dataset = pd.concat([output_dataset, output_column], axis=1)
   return output_dataset
 
 

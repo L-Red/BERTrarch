@@ -1,6 +1,6 @@
 from numpy.core.defchararray import encode
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 import pickle
 import pandas as pd
 from langdetect import detect
@@ -89,10 +89,16 @@ def trans_non_en(s):
 
 
 #load WEIS data
-def get_WEIS():
+def get_WEIS(label):
     WEIS = pd.read_csv('../WEIS/weis_data_decoded.csv')
-    nltk.download('stopwords')
-    return WEIS
+    # nltk.download('stopwords')
+    y = WEIS[label].tolist()
+    le = LabelEncoder()
+    y_list = le.fit_transform(y)
+    np.save(f'./label-encoder-classes/weis-{label}-classes.npy', le.classes_)
+    text_list = WEIS['text'].tolist()
+    num_classes = len(le.classes_)
+    return (text_list, y_list, num_classes)
 
 
 #process the data
@@ -104,14 +110,20 @@ def load_bert(freeze=True):
       param.requires_grad = False
   return (tokenizer, bert_model)   # Download model and configuration from S3 and cache
 
-def tokenize_bert(text_list, y_list, tokenizer, cut=2):
-  indexed_tokens = tokenizer(text_list[0:len(text_list)//cut], padding=True, return_tensors='np', truncation=True)
+def tokenize_bert(text_list, y_list, tokenizer, cut=1):
+  indexed_tokens = tokenizer(
+    text_list[0:len(text_list)//cut], 
+    padding=True, 
+    return_tensors='np', 
+    truncation=True, 
+    # max_length=128
+    )
   y = y_list[0:len(text_list)//cut]
   X = indexed_tokens['input_ids']
   return (X, y)
 
 def split_data(X, y):
-  from torch.utils.data import random_split, Dataset, WeightedRandomSampler, DataLoader
+  from torch.utils.data import random_split, Dataset, WeightedRandomSampler
   from sklearn.model_selection import train_test_split
   # l = X.shape[0]
   # X_train, X_test, X_val = random_split(X, [l*7//10, l*2//10, l-l*9//10], generator=torch.Generator().manual_seed(42))

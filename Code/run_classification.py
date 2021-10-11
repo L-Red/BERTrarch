@@ -4,19 +4,20 @@ data to train the model
 """
 
 import sys
+import os
 
 # import config
+import numpy as np
 from dataloading import *
 import pytorch_lightning as pl
 from training.neural_nets import *
 from training.data_preparation import *
-import numpy as np
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available()else "cpu")
 FRAMEWORK = ''
 LABEL = ''
 NUM_CLASSES=10000
-
+# os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 def classify(text, dtype):
     #WEIS
@@ -37,9 +38,14 @@ def run_ucdp(label):
     # ucdp_save(UCDP2, '../UCDP/translated_df.csv')
 
 
-def run_acled():
-    X, y, num_classes = get_acled('fatalities')
-    return X,y, num_classes
+def run_acled(label):
+    X, y, num_classes = get_acled(label)
+    return X, y, label, num_classes
+
+
+def run_weis(label):
+    X, y, num_classes = get_WEIS(label)
+    return X, y, label, num_classes 
 
 if sys.argv[1] == 'u': #run for UCDP
     #X, y = run_ucdp(sys.argv[2])
@@ -47,11 +53,11 @@ if sys.argv[1] == 'u': #run for UCDP
     FRAMEWORK = "ucdp"
 
 elif sys.argv[1] == 'a': #run for ACLED
-    X, y, NUM_CLASSES = run_acled()
+    X, y, LABEL, NUM_CLASSES = run_acled(sys.argv[2])
     FRAMEWORK = "acled"
 
 elif sys.argv[1] == 'w': #run for WEIS
-    X, y = run_weis()
+    X, y, LABEL, NUM_CLASSES = run_weis(sys.argv[2])
     FRAMEWORK = "weis"
 
 else:
@@ -61,8 +67,8 @@ else:
         print('run_classification.py <argument>')
         sys.exit(2)
 
-#BERT
-tokenizer, bert_model = load_bert(freeze=False)
+# BERT
+tokenizer, bert_model = load_bert(freeze=True)
 y = np.array(y)
 X, y = tokenize_bert(X, y, tokenizer)
 split_list = split_data(X,y)
@@ -70,23 +76,19 @@ split_list = split_data(X,y)
 datasets = []
 for tup in split_list:
     datasets.append(create_dataset(tup))
-config = dict(EPOCHS = 2,
-              BATCH_SIZE = 32,
-              LEARNING_RATE = 3e-2,
-              NUM_FEATURES = 300,
-              NUM_CLASSES = NUM_CLASSES,
-              INPUT_DIM = X.shape[1])
-
-del tokenizer, X, y
-weighted_sampler = make_weighted_sampler(datasets[0], distributed=False)
-data_module = DataModule(
-                                            datasets[0],
-                                            datasets[1],
-                                            datasets[2],
-                                            batchsize=config["BATCH_SIZE"],
-                                            WEIGHTED_SAMPLER=True,
-                                            weighted_sampler=weighted_sampler
-                                            )
+bert_model = torch.hub.load('huggingface/pytorch-transformers', 'model', 'bert-base-uncased')
+config = dict(
+    EPOCHS = 4,
+    BATCH_SIZE = 32,
+    LEARNING_RATE = 3e-2,
+    NUM_FEATURES = 300,
+    NUM_CLASSES = NUM_CLASSES,
+    INPUT_DIM = X.shape[1],
+    NUM_NODES = int(sys.argv[3])
+    )
+print(f"Input Dimensions: {X.shape[1]}")
+data_module = DataModule(X, y, config['BATCH_SIZE'], datasets)
+# weighted_sampler = make_weighted_sampler(datasets[0], distributed=False)
 
     #model = MulticlassClassification(config["INPUT_DIM"], config["NUM_FEATURES"], config["NUM_CLASSES"], "ucdp-bert-best-classified", bert_model)
 n = torch.cuda.device_count()
