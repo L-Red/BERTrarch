@@ -34,7 +34,7 @@ class BertRegression(nn.Module):
         #print(x.shape)
         #print(x.shape)
         with torch.no_grad():
-            x = self.pretrained(x)
+            x = self.pretrained(input_ids, attention_mask=attention_mask)
         x = x["last_hidden_state"]
         #print(x.shape)
         #x = x.view(BATCH_SIZE,-1)
@@ -85,7 +85,9 @@ class MulticlassClassification(pl.LightningModule):
         self.embedding = nn.Embedding(input_dim, num_feature)
 
         self.layer_1 = nn.Linear(input_dim*768, 1024)
-        self.classifier= nn.Linear(768, num_class)
+        self.hidden_layer = nn.Linear(768, 512)
+        self.hidden_layer2 = nn.Linear(512, 256)
+        self.classifier= nn.Linear(256, num_class)
         #self.layer_0 = nn.Linear(2048, 1024)
         self.layer_0_1 = nn.Linear(1024, 512)
         # self.layer_1_2 = nn.Linear(512, 512)
@@ -107,10 +109,7 @@ class MulticlassClassification(pl.LightningModule):
     def forward(self, x):
         #print(x.shape)
         #print(x.shape)
-        x = self.pretrained(x)
         
-        #changed from last_hidden_state to pooler_output
-        x = x["pooler_output"]
         #print(x.shape)
         #x = x.view(BATCH_SIZE,-1)
         #x = torch.flatten(x, start_dim=1)
@@ -149,10 +148,21 @@ class MulticlassClassification(pl.LightningModule):
 
         x = self.layer_out(x)
         """
+        input_ids, attention_mask = x['input_ids'], x['attention_mask']
+        input_ids = input_ids.squeeze(dim=1)
+        x = self.pretrained(input_ids, attention_mask=attention_mask)
+        #changed from last_hidden_state to pooler_output
+        x = x["pooler_output"]
+
+        x = self.hidden_layer(x)
+        x = self.relu(x)
+        x = self.hidden_layer2(x)
+        x = self.relu(x)
         x = self.classifier(x)
-        x = self.softmax(x)
+        #x = self.softmax(x)
 
         return x
+
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=self.config["LEARNING_RATE"])
         return optimizer
@@ -166,7 +176,7 @@ class MulticlassClassification(pl.LightningModule):
         hit_at_1 = hit_at_k(y_train_pred, y_train_batch, 1)
         hit_at_3 = hit_at_k(y_train_pred, y_train_batch, 3)
         hit_at_10 = hit_at_k(y_train_pred, y_train_batch, 10)
-        f1score = f1(y_train_pred, y_train_batch, self.num_classes)
+        f1score = f1(y_train_pred, y_train_batch, num_classes=self.num_classes, average='weighted')
         
         mdae = MdAE(y_train_pred, y_train_batch, reg=False)
         mdape = MdAPE(y_train_pred, y_train_batch, reg=False)
@@ -190,7 +200,7 @@ class MulticlassClassification(pl.LightningModule):
         hit_at_3 = hit_at_k(y_val_pred, y_val_batch, 3)
         hit_at_10 = hit_at_k(y_val_pred, y_val_batch, 10)
 
-        f1score = f1(y_val_pred, y_val_batch, self.num_classes)
+        f1score = f1(y_val_pred, y_val_batch, num_classes=self.num_classes, average='weighted')
         
         mdae = MdAE(y_val_pred, y_val_batch, reg=False)
         mdape = MdAPE(y_val_pred, y_val_batch, reg=False)
@@ -217,7 +227,7 @@ class MulticlassClassification(pl.LightningModule):
         mdae = MdAE(y_test_pred, y_test_batch, reg=False)
         mdape = MdAPE(y_test_pred, y_test_batch, reg=False)
 
-        f1score = f1(y_test_pred, y_test_batch, self.num_classes)
+        f1score = f1(y_test_pred, y_test_batch, num_classes=self.num_classes, average='weighted')
 
         self.log("test_loss", test_loss)
         self.log("test_F1", f1score)

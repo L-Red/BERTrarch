@@ -120,7 +120,7 @@ def tokenize_bert(text_list, y_list, tokenizer, cut=1):
     max_length=64
     )
   y = y_list[0:len(text_list)//cut]
-  X = indexed_tokens['input_ids']
+  X = indexed_tokens
   return (X, y)
 
 def split_data(X, y):
@@ -138,20 +138,29 @@ def split_data(X, y):
   return [(X_train, y_train), (X_val, y_val), (X_test, y_test)]
   
 
-def create_dataset(tup):
-  return ClassifierDataset(*tup)
+def create_dataset(tup, max_length):
+  return ClassifierDataset(*tup, max_length)
 
   print(X_train.shape)
   return (train_dataset, val_dataset, test_dataset)
   #Define dataset for dataloader
 class ClassifierDataset(Dataset):
 
-  def __init__(self, X_data, y_data):
-      self.X_data = torch.from_numpy(X_data)
-      self.y_data = torch.from_numpy(y_data)
+  def __init__(self, X_data, y_data, max_length):
+      self.X_data = X_data
+      self.y_data = y_data
+      self.max_length = max_length
+      self.tokenizer, _ = load_bert(freeze=False)
 
   def __getitem__(self, index):
-      return self.X_data[index], self.y_data[index]
+      tokenized_X = self.tokenizer(
+        self.X_data[index],padding='max_length', 
+        return_tensors='pt', 
+        truncation=True, 
+        max_length=self.max_length
+        )
+      label = self.y_data[index]
+      return tokenized_X, label
 
   def __len__ (self):
       return len(self.X_data)
