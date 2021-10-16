@@ -183,7 +183,7 @@ else:
     #y = np.array(y)
     #X = np.array(X)
     #X, y = tokenize_bert(X, y, tokenizer)
-    max_length = 64
+    max_length = 256
     split_list = split_data(X,y)
     #normalize_data(split_list)
     datasets = []
