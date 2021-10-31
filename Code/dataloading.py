@@ -154,9 +154,9 @@ class ClassifierDataset(Dataset):
 
   def __getitem__(self, index):
       tokenized_X = self.tokenizer(
-        self.X_data[index],padding='max_length', 
-        return_tensors='pt', 
-        truncation=True, 
+        self.X_data[index],padding='max_length',
+        return_tensors='pt',
+        truncation=True,
         max_length=self.max_length
         )
       label = self.y_data[index]

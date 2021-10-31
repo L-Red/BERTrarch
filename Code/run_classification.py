@@ -66,7 +66,7 @@ def chunks(lst, n):
         except IndexError:
             yield torch.tensor(lst[i:len(lst)])
 
-def train_SVM(X, y):
+def train_SVM(X, y, type):
     split_list = split_data(X,y)
     X_train, y_train = split_list[0]
     X_val, y_val = split_list[1]
@@ -82,6 +82,9 @@ def train_SVM(X, y):
     test_pred = clf.predict(X_test)
     score = f1_score(y_test, test_pred, average='weighted')
     print(f'Test F1_Score: {score}')
+    f = open(f"/cluster/work/cotterell/liaroth/bachelor-thesis/Results/{FRAMEWORK}_{LABEL}.txt", "a")
+    f.write(f"{type}:\n{score}\n")
+    f.close()
 
 if sys.argv[1] == 'u': #run for UCDP
     #X, y = run_ucdp(sys.argv[2])
@@ -114,12 +117,15 @@ if sys.argv[4] == 'maj':
     y_pred = np.array([majority_class]*len(y_test))
     score = f1_score(y_test, y_pred, average='weighted')
     print(f'Majority F1 score {score}')
+    f = open(f"/cluster/work/cotterell/liaroth/bachelor-thesis/Results/{FRAMEWORK}_{LABEL}.txt", "a")
+    f.write(f"Majority Vote:\n{score}\n")
+    f.close()
 
 #Bag Of Words classifier
 elif sys.argv[4] == 'svm':
     vectorizer = CountVectorizer(ngram_range=(1,5))
     X = vectorizer.fit_transform(X)  
-    train_SVM(X,y)
+    train_SVM(X,y, "Bag of Words")
 
 #GloVe classifier
 elif sys.argv[4] == 'glove':
@@ -166,7 +172,7 @@ elif sys.argv[4] == 'glove':
         #X = X.reshape(X.shape[0], -1)
 
         print(f'First entry in X: {X[0]}')
-        train_SVM(X,y)
+        train_SVM(X,y, "GloVe")
 
 
 
@@ -174,16 +180,20 @@ elif sys.argv[4] == 'glove':
 
 
 else:
+    freeze = False
     if sys.argv[4] == 'bert-svm':
         #non fine-tuned BERT
+        model_name = f"{FRAMEWORK}-bert_SVM_pooled_addedLayer-{LABEL}-classified"
         tokenizer, bert_model = load_bert(freeze=True)
+        freeze = True
     else:
         #fine-tuned BERT
+        model_name = f"{FRAMEWORK}-bert_pooled_addedLayer-{LABEL}-classified"
         tokenizer, bert_model = load_bert(freeze=False)
     #y = np.array(y)
     #X = np.array(X)
     #X, y = tokenize_bert(X, y, tokenizer)
-    max_length = 256
+    max_length = 64
     split_list = split_data(X,y)
     #normalize_data(split_list)
     datasets = []
@@ -193,7 +203,7 @@ else:
     config = dict(
         EPOCHS = EPOCHS,
         BATCH_SIZE = BATCH_SIZE,
-        LEARNING_RATE = 3e-2,
+        LEARNING_RATE = 1e-4,
         NUM_FEATURES = 300,
         NUM_CLASSES = NUM_CLASSES,
         INPUT_DIM = max_length,
@@ -204,6 +214,5 @@ else:
 
         #model = MulticlassClassification(config["INPUT_DIM"], config["NUM_FEATURES"], config["NUM_CLASSES"], "ucdp-bert-best-classified", bert_model)
     n = torch.cuda.device_count()
-    model_name = f"{FRAMEWORK}-bert_pooled_addedLayer-{LABEL}-classified"
-    model = MulticlassClassification(config["INPUT_DIM"], config["NUM_FEATURES"], config["NUM_CLASSES"], model_name, bert_model, config)
+    model = MulticlassClassification(config["INPUT_DIM"], config["NUM_FEATURES"], config["NUM_CLASSES"], FRAMEWORK, LABEL, freeze, bert_model, config)
     train(model, config, data_module, DEVICE, reg=False)

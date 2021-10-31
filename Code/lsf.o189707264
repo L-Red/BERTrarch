@@ -1,0 +1,57 @@
+Sender: LSF System <lsfadmin@eu-c7-113-09>
+Subject: Job 189707264: <./run_code_server.sh> in cluster <euler> Exited
+
+Job <./run_code_server.sh> was submitted from host <eu-login-11> by user <liaroth> in cluster <euler> at Thu Oct 28 11:22:19 2021
+Job was executed on host(s) <eu-c7-113-09>, in queue <normal.24h>, as user <liaroth> in cluster <euler> at Thu Oct 28 11:22:25 2021
+</cluster/home/liaroth> was used as the home directory.
+</cluster/work/cotterell/liaroth/bachelor-thesis/Code> was used as the working directory.
+Started at Thu Oct 28 11:22:25 2021
+Terminated at Thu Oct 28 21:22:27 2021
+Results reported at Thu Oct 28 21:22:27 2021
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+./run_code_server.sh
+------------------------------------------------------------
+
+TERM_RUNLIMIT: job killed after reaching LSF run time limit.
+Exited with exit code 140.
+
+Resource usage summary:
+
+    CPU time :                                   47.00 sec.
+    Max Memory :                                 359 MB
+    Average Memory :                             168.59 MB
+    Total Requested Memory :                     2800.00 MB
+    Delta Memory :                               2441.00 MB
+    Max Swap :                                   -
+    Max Processes :                              8
+    Max Threads :                                64
+    Run time :                                   36025 sec.
+    Turnaround time :                            36008 sec.
+
+The output (if any) follows:
+
+
+The following have been reloaded with a version change:
+  1) gcc/4.8.5 => gcc/6.3.0
+
+[2021-10-28T09:22:28.715Z] info  code-server 3.9.3 fe2dc2deb08e378069891b622bb62ad1d261d1b1
+[2021-10-28T09:22:28.716Z] info  Using user-data-dir ~/.local/share/code-server
+[2021-10-28T09:22:28.732Z] info  Using config file ~/.config/code-server/config.yaml
+[2021-10-28T09:22:28.732Z] info  HTTP server listening on http://10.205.4.200:63165 
+[2021-10-28T09:22:28.732Z] info    - Authentication is enabled
+[2021-10-28T09:22:28.732Z] info      - Using password from ~/.config/code-server/config.yaml
+[2021-10-28T09:22:28.732Z] info    - Not serving HTTPS 
+[2021-10-28T09:23:43.152Z] error Failed to get latest version [38;2;140;140;140m{"error":"connect ECONNREFUSED 140.82.121.6:443"}[0m
+  ERR /cluster/home/liaroth/.local/share/code-server/extensions [Error: ENOENT: no such file or directory, scandir '/cluster/home/liaroth/.local/share/code-server/extensions'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'scandir',
+  path: '/cluster/home/liaroth/.local/share/code-server/extensions'
+}
+  ERR [File Watcher (chokidar)] Inotify limit reached (ENOSPC)
+  ERR [File Watcher (chokidar)] Inotify limit reached (ENOSPC)
+User defined signal 2

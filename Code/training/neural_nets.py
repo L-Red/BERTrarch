@@ -11,70 +11,18 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from pytorch_lightning.loggers import WandbLogger
 from torchmetrics.functional import f1
 
-
-
-class BertRegression(nn.Module):
-    def __init__(self, input_dim, num_feature, num_class, name, pretrained):
-        super(BertRegression, self).__init__()
-        self.pretrained = pretrained.cuda()
-        self.name = name
-        self.embedding = nn.Embedding(input_dim, num_feature)
-        self.layer_1 = nn.Linear(input_dim*768, 512).cuda()
-        self.layer_1_2 = nn.Linear(512, 512).cuda()
-        self.layer_2 = nn.Linear(512, 128).cuda()
-        self.layer_3 = nn.Linear(128, 64).cuda()
-        self.layer_out = nn.Linear(64, 1).cuda()
-        self.sig = nn.Sigmoid().cuda()
-        self.dropout = nn.Dropout(p=0.2).cuda()
-        self.batchnorm1 = nn.BatchNorm1d(512).cuda()
-        self.batchnorm2 = nn.BatchNorm1d(128).cuda()
-        self.batchnorm3 = nn.BatchNorm1d(64).cuda()
-
-    def forward(self, x):
-        #print(x.shape)
-        #print(x.shape)
-        with torch.no_grad():
-            x = self.pretrained(input_ids, attention_mask=attention_mask)
-        x = x["last_hidden_state"]
-        #print(x.shape)
-        #x = x.view(BATCH_SIZE,-1)
-        x = torch.flatten(x, start_dim=1)
-        #print(x.shape)
-
-        x = self.layer_1(x)
-        #print(x.shape)
-        #x = x.view(-1, 512,  45)
-        #print(x.shape)
-        x = self.batchnorm1(x)
-        x = self.sig(x)
-        
-        x = self.layer_1_2(x)
-        x = self.batchnorm1(x)
-        x = self.sig(x)
-
-        x = self.layer_2(x)
-        x = self.batchnorm2(x)
-        x = self.sig(x)
-        x = self.dropout(x)
-
-        x = self.layer_3(x)
-        x = self.batchnorm3(x)
-        x = self.sig(x)
-        x = self.dropout(x)
-        
-        x = self.layer_out(x)
-        
-        #in acled
-        x = x.squeeze(1)
-        return x
-
 class MulticlassClassification(pl.LightningModule):
-    def __init__(self, input_dim, num_feature, num_class, name, pretrained, config):
+    def __init__(self, input_dim, num_feature, num_class, framework, label, freeze, pretrained, config):
         super(MulticlassClassification, self).__init__()
 
         self.pretrained = pretrained
-
-        self.name = name
+        self.framework = framework
+        self.label = label
+        self.freeze = freeze
+        if freeze:
+            self.name = f"{framework}-bert_SVM_pooled_addedLayer-{label}-classified"
+        else:
+            self.name = f"{framework}-bert_pooled_addedLayer-{label}-classified"
 
         self.config = config
 
@@ -87,7 +35,7 @@ class MulticlassClassification(pl.LightningModule):
         self.layer_1 = nn.Linear(input_dim*768, 1024)
         self.hidden_layer = nn.Linear(768, 512)
         self.hidden_layer2 = nn.Linear(512, 256)
-        self.classifier= nn.Linear(256, num_class)
+        self.classifier= nn.Linear(512, num_class)
         #self.layer_0 = nn.Linear(2048, 1024)
         self.layer_0_1 = nn.Linear(1024, 512)
         # self.layer_1_2 = nn.Linear(512, 512)
@@ -115,48 +63,14 @@ class MulticlassClassification(pl.LightningModule):
         #x = torch.flatten(x, start_dim=1)
         #print(x.shape)
 
-        """
-        x = self.layer_1(x)
-        #print(x.shape)
-        #x = x.view(-1, 512,  45)
-        #print(x.shape)
-        if x.shape[0] > 1:
-            x = self.batchnorm0_1(x)
-        x = self.relu(x)
-        
-        x = self.layer_0_1(x)
-        if x.shape[0] > 1:
-            x = self.batchnorm1(x)
-        x = self.relu(x)
-        
-        x = self.layer_1_2(x)
-        if x.shape[0] > 1:
-            x = self.batchnorm1(x)
-        x = self.relu(x)
-
-        x = self.layer_2(x)
-        if x.shape[0] > 1:
-            x = self.batchnorm2(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-
-        x = self.layer_3(x)
-        if x.shape[0] > 1:
-            x = self.batchnorm3(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-
-        x = self.layer_out(x)
-        """
-        input_ids, attention_mask = x['input_ids'], x['attention_mask']
+        input_ids, attention_mask = x['input_ids'], x['attention_mask']      
         input_ids = input_ids.squeeze(dim=1)
         x = self.pretrained(input_ids, attention_mask=attention_mask)
         #changed from last_hidden_state to pooler_output
-        x = x["pooler_output"]
+        #x = x["pooler_output"]
+        x = torch.mean(x["last_hidden_state"],dim=1)
 
         x = self.hidden_layer(x)
-        x = self.relu(x)
-        x = self.hidden_layer2(x)
         x = self.relu(x)
         x = self.classifier(x)
         #x = self.softmax(x)
@@ -232,90 +146,42 @@ class MulticlassClassification(pl.LightningModule):
         self.log("test_loss", test_loss)
         self.log("test_F1", f1score)
 
-        return test_loss
+        return {"pred": y_test_pred, "truth": y_test_batch}
+
+    def test_step_end(self, batch_parts):
+        predictions = batch_parts["pred"]
+        truths = batch_parts["truth"]
+        return (predictions, truths)
+    
+
+    def test_epoch_end(self, test_step_outputs):
+        predictions = []
+        truths = []
+        for out in test_step_outputs:
+            predictions.append(out[0])
+            truths.append(out[1])
+        if predictions[0].shape[0] != predictions[len(predictions)-1].shape[0]:
+            predictions = predictions[0:len(predictions)-1]
+            truths = truths[0:len(truths)-1]
+        predictions = torch.cat(predictions)
+        truths = torch.cat(truths)
+        f1score = f1(predictions, truths, num_classes=self.num_classes, average='weighted')
+        print(f1score)
 
         #val_acc = multi_acc(y_val_pred, y_val_batch)
         
+        if self.freeze:
+            f = open(f"/cluster/work/cotterell/liaroth/bachelor-thesis/Results/{self.framework}_{self.label}.txt", "a")
+            f.write(f"BERT SVM:\n{f1score}\n")
+            f.close()
+        else:
+            f = open(f"/cluster/work/cotterell/liaroth/bachelor-thesis/Results/{self.framework}_{self.label}.txt", "a")
+            f.write(f"BERT fine-tuned:\n{f1score}\n")
+            f.close()
+
         #for prediction, truth in zip(y_val_pred, y_val_batch))
             #class_matrix_val[prediction][truth] += 1
-
-
-class MulticlassClassification1(nn.Module):
-    def __init__(self, input_dim, num_feature, num_class, name, pretrained):
-        super(MulticlassClassification1, self).__init__()
-
-        self.pretrained = pretrained
-
-        self.name = name
-
-        self.train_dataloader = train_loader
-        self.val_dataloader = val_loader
-        self.test_dataloader = test_loader
-        
-        self.embedding = nn.Embedding(input_dim, num_feature)
-
-        self.layer_1 = nn.Linear(input_dim*768, 1024)
-        #self.layer_0 = nn.Linear(2048, 1024)
-        self.layer_0_1 = nn.Linear(1024, 512)
-        self.layer_1_2 = nn.Linear(512, 512)
-        self.layer_2 = nn.Linear(512, 128)
-        self.layer_3 = nn.Linear(128, 64)
-        self.layer_out = nn.Linear(64, num_class)
-        self.classifier = nn.Linear(input_dim*768, num_class)
-        self.softmax = nn.Softmax(dim=1)
-
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(p=0.2)
-        #self.batchnorm0 = nn.BatchNorm1d(2048)
-        self.batchnorm0_1 = nn.BatchNorm1d(1024)
-        self.batchnorm1 = nn.BatchNorm1d(512)
-        self.batchnorm2 = nn.BatchNorm1d(128)
-        self.batchnorm3 = nn.BatchNorm1d(64)
-
-    def forward(self, x):
-        #print(x.shape)
-        #print(x.shape)
-        # input_dim = x.shape[1]
-        x = self.pretrained(x)
-        
-        x = x["last_hidden_state"]
-        #print(x.shape)
-        #x = x.view(BATCH_SIZE,-1)
-        x = torch.flatten(x, start_dim=1)
-        #print(x.shape)
-        """self.layer_1 = nn.Linear(input_dim*768, 1024)
-        x = self.layer_1(x)
-        #print(x.shape)
-        #x = x.view(-1, 512,  45)
-        #print(x.shape)
-        x = self.batchnorm0_1(x)
-        x = self.relu(x)
-        
-        x = self.layer_0_1(x)
-        x = self.batchnorm1(x)
-        x = self.relu(x)
-        
-        x = self.layer_1_2(x)
-        x = self.batchnorm1(x)
-        x = self.relu(x)
-
-        x = self.layer_2(x)
-        x = self.batchnorm2(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-
-        x = self.layer_3(x)
-        x = self.batchnorm3(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-
-        x = self.layer_out(x)"""
-
-        x = self.classifier(x)
-        x = self.softmax(x)
-        return x
-
-        
+        return f1score       
 
 
 def train(model, config, data_module, device, reg=False):
@@ -343,140 +209,7 @@ def train(model, config, data_module, device, reg=False):
     trainer.save_checkpoint(f"./checkpoints/{model.name}.ckpt")
     trainer.test(ckpt_path="best")
 
-
-
-def train1(model, config, data_module, device, reg=False):
-    wandb.init(project=model.name, config=config)
-    wandb.login()
-    model = model.to(device)
-    wandb.watch(model)
-    counter = 0
-
-    if reg:
-        criterion = nn.MSELoss()
-    else:
-        criterion = nn.CrossEntropyLoss()
-        
-    optimizer = optim.Adam(model.parameters(), lr=config["LEARNING_RATE"])
-
-    accuracy_stats = {
-    'train': [],
-    "val": []
-    }
-    loss_stats = {
-        'train': [],
-        "val": []
-    }
-
-    scaler = GradScaler()
-
-    from tqdm.notebook import tqdm
-    print("Begin training.")
-    for e in tqdm(range(1, config["EPOCHS"]+1)):
-
-        # TRAINING
-        train_epoch_loss = 0
-        train_epoch_acc = 0
-        model.train()
-        for X_train_batch, y_train_batch in train_loader:
-                #torch.cuda.empty_cache()
-                X_train_batch, y_train_batch = X_train_batch.to(device), y_train_batch.to(device)
-                optimizer.zero_grad()
-                with torch.cuda.amp.autocast():
-                    y_train_pred = model(X_train_batch)
-                    #print(f'y_train_pred: {y_train_pred.shape}')
-                    
-                    train_loss = criterion(y_train_pred, y_train_batch)
-                #train_acc = multi_acc(y_train_pred, y_train_batch)
-                
-                #print(train_loss)
-                
-                #metrics
-                if not reg:
-                    hit_at_1 = hit_at_k(y_train_pred, y_train_batch, 1, reg)
-                    hit_at_3 = hit_at_k(y_train_pred, y_train_batch, 3, reg)
-                    hit_at_10 = hit_at_k(y_train_pred, y_train_batch, 10, reg)
-                
-                mdae = MdAE(y_train_pred, y_train_batch, reg)
-                mdape = MdAPE(y_train_pred, y_train_batch, reg)
-                
-                if not reg: 
-                    wandb.log({
-                        "hit@1": hit_at_1, 
-                        "hit@3": hit_at_3, 
-                        "hit@10": hit_at_10,
-                    })
-                wandb.log({"train_loss": train_loss, 
-                        "MdAE": mdae,
-                        "MdAPE": mdape,
-                        "epoch": e})
-                
-                #for prediction, truth in zip(y_train_pred.to('cpu'), y_train_batch.to('cpu')):
-                    #class_matrix_train[prediction][truth] += 1
-
-                scaler.scale(train_loss).backward()
-                scaler.step(optimizer)
-
-                train_epoch_loss += train_loss.detach().item()
-                #train_epoch_acc += train_acc.item()
-                
-                
-                scaler.update()
-
-                if counter < 5:
-                    print('skrr')
-                    counter += 1
-
-
-            # VALIDATION
-        with torch.no_grad():
-
-            val_epoch_loss = 0
-            val_epoch_acc = 0
-
-            model.eval()
-            for X_val_batch, y_val_batch in val_loader:
-                X_val_batch, y_val_batch = X_val_batch.to(device), y_val_batch.to(device)
-
-                y_val_pred = model(X_val_batch)
-                
-                val_loss = criterion(y_val_pred, y_val_batch)
-
-                if not reg:
-                    hit_at_1 = hit_at_k(y_val_pred, y_val_batch, 1, reg)
-                    hit_at_3 = hit_at_k(y_val_pred, y_val_batch, 3, reg)
-                    hit_at_10 = hit_at_k(y_val_pred, y_val_batch, 10, reg)
-                
-                mdae = MdAE(y_val_pred, y_val_batch, reg)
-                mdape = MdAPE(y_val_pred, y_val_batch, reg)
-
-                #val_acc = multi_acc(y_val_pred, y_val_batch)
-                
-                #for prediction, truth in zip(y_val_pred, y_val_batch):
-                    #class_matrix_val[prediction][truth] += 1
-
-                val_epoch_loss += val_loss.item()
-                #val_epoch_acc += val_acc.item()
-                if not reg: 
-                    wandb.log({
-                        "hit@1": hit_at_1, 
-                        "hit@3": hit_at_3, 
-                        "hit@10": hit_at_10,
-                    })
-                wandb.log({"val_loss": val_loss, 
-                        "epoch": e,
-                        "MdAE": mdae,
-                        "MdAPE": mdape,
-                        })
-        loss_stats['train'].append(train_epoch_loss/len(train_loader))
-        loss_stats['val'].append(val_epoch_loss/len(val_loader))
-        #accuracy_stats['train'].append(train_epoch_acc/len(train_loader))
-        #accuracy_stats['val'].append(val_epoch_acc/len(val_loader))
-
-
-        print(f'Epoch {e+0:03}: | Train Loss: {train_epoch_loss/len(train_loader):.5f} | Val Loss: {val_epoch_loss/len(val_loader):.5f} | Train Acc: {train_epoch_acc/len(train_loader):.3f}| Val Acc: {val_epoch_acc/len(val_loader):.3f}')
-
-    
+  
 
 def save_model(model):
     torch.save(model.state_dict(), f'./models/{model.name}')
